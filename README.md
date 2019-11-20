@@ -3,13 +3,6 @@
 The [dataset](http://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Original%29) used for modelling comes from University of Wisconsin.
 
 
-# TODOS
-1. Data labelling/cleaning
-2. Data Modelling
-3. Data Prediction
-
-
-
 ### Data Visualizing
 ---
 in order to use visualization
@@ -26,3 +19,10 @@ The script will create a folder called visualization. The dataset folder would b
 in the visualization folder. In order to run the visualization we can run this script in terminal:
 
 ```tensorboard --logdir=visualization/wdbc.data --host=localhost ```
+
+
+
+# TODOS
+1. Data labelling/cleaning
+2. Data Modelling
+3. Data Prediction
