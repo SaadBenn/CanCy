@@ -32,7 +32,7 @@ class BCWDataset(Dataset):
         self.X = X
         self.Y = Y
 
-        print("Cancer data set dimensions : {}".format(data.shape))
+        print("breast cancer wisconsin cancer dataset dimensions : {}".format(data.shape))
         super(BCWDataset, self).process_dataset()
 
 
@@ -51,7 +51,7 @@ class WDBCDataset(Dataset):
         self.X = X
         self.Y = Y
 
-        print("Cancer data set dimensions : {}".format(data.shape))
+        print("WDBC cancer dataset dimensions : {}".format(data.shape))
         super(WDBCDataset, self).process_dataset()
 
 
@@ -71,5 +71,5 @@ class WPBCDataset(Dataset):
         self.X = X
         self.Y = Y
 
-        print("Cancer data set dimensions : {}".format(data.shape))
+        print("WPBC cancer dataset dimensions : {}".format(data.shape))
         super(WPBCDataset, self).process_dataset()
