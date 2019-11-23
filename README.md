@@ -23,6 +23,8 @@ in the visualization folder. In order to run the visualization we can run this s
 
 
 # TODOS
-1. Data labelling/cleaning
-2. Data Modelling
-3. Data Prediction
+- [X] Data labelling/cleaning
+
+- [ ] Data Modelling
+
+- [ ] Data Prediction
