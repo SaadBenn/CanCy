@@ -28,6 +28,7 @@ class Dataset:
         # model can understand better
         labelencoder_Y = LabelEncoder()
         self._Y = labelencoder_Y.fit_transform(self._Y)
+        self._Y = np.expand_dims(self._Y, 1)
 
     def create_train_test_dataset(self):
         X_train, X_test, y_train, y_test = train_test_split(self._X, self._Y, test_size=0.2,

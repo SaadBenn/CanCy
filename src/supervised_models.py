@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, "./")
 
 from src.data_preprocessing import dataset_dict
+from src.network.network import Network
 
 
 model_dict = {
@@ -17,7 +18,8 @@ model_dict = {
     "decision_tree": DecisionTreeClassifier,
     "gradient_boost": GradientBoostingClassifier,
     "svc": SVC,
-    "linear_svc": LinearSVC
+    "linear_svc": LinearSVC,
+    "network": Network
 }
 
 
@@ -46,6 +48,3 @@ if __name__ == '__main__':
     model.fit(X_train, y_train)
     score = model.score(X_test, y_test)
     print(f"Accuracy: {score}")
-
-
-
