@@ -5,14 +5,7 @@ import os
 import argparse
 
 from src.make_directory import make_directory
-from src.data_preprocessing import BCWDataset, WDBCDataset, WPBCDataset
-
-
-dataset_dict = {
-    'breast-cancer-wisconsin.data': BCWDataset,
-    'wdbc.data': WDBCDataset,
-    'wpbc.data': WPBCDataset
-}
+from src.data_preprocessing import dataset_dict
 
 
 if __name__ == '__main__':
