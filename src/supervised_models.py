@@ -13,7 +13,8 @@ model_dict = {
     "random_forest": RandomForestClassifier,
     "decision_tree": DecisionTreeClassifier,
     "gradient_boost": GradientBoostingClassifier,
-    "svc": SVC()
+    "svc": SVC,
+    "linear_svc": LinearSVC
 }
 
 
