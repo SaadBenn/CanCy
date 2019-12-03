@@ -50,6 +50,7 @@ class BCWDataset(Dataset):
         self._X = X
         self._Y = Y
 
+
         print("breast cancer wisconsin cancer dataset dimensions : {}".format(data.shape))
         super(BCWDataset, self).process_dataset()
 
@@ -76,7 +77,7 @@ class WDBCDataset(Dataset):
 class WPBCDataset(Dataset):
     def __init__(self, path_to_file, seed):
         super(WPBCDataset, self).__init__(path_to_file, seed)
-        
+
     def process_dataset(self):
         # Reading the data set
         data = pd.read_csv(self.filename)
@@ -98,3 +99,4 @@ dataset_dict = {
     'wdbc.data': WDBCDataset,
     'wpbc.data': WPBCDataset
 }
+
