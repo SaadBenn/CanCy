@@ -4,6 +4,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC, LinearSVC
+import sys
+
+sys.path.insert(0, "./")
 
 from src.data_preprocessing import dataset_dict
 
