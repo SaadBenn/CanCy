@@ -3,6 +3,9 @@ import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
 import os
 import argparse
+import sys
+
+sys.path.insert(0, "./")
 
 from src.make_directory import make_directory
 from src.data_preprocessing import BCWDataset, WDBCDataset, WPBCDataset
