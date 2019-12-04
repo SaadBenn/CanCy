@@ -28,68 +28,95 @@ class TorchDataset(Dataset):
         return X, y
 
 
+class OnlyXDataset(Dataset):
+    def __init__(self, inputs):
+        self.inputs = torch.from_numpy(inputs)
+
+    def __len__(self):
+        return self.inputs.shape[0]
+
+    def __getitem__(self, index):
+        X = self.inputs[index]
+        return X
+
+
 class Network(nn.Module):
-    def __init__(self, all_X_train, all_y_train, random_state=42):
+    def __init__(self, all_X_train, random_state=42):
         torch.manual_seed(random_state)
         np.random.seed(random_state)
         super(Network, self).__init__()
         self.all_X_train = all_X_train
-        self.all_y_train = all_y_train
-
-        self.layer1 = None  # nn.Linear(input_shape, 64), we don't know what's the input size yet
-        self.layer2 = nn.Linear(64, 16)
-
-        # output
-        self.layer3 = nn.Linear(16, 16)
-        self.output_layer = None  # nn.Linear(16, output_shape), we don't know what's the output size yet
-
-        # reconstruction (autoencoder)
-        self.pre_reconstruct_layer = nn.Linear(16, 64)
-        self.reconstruct_output = None  # nn.Linear(64, input_shape), we don't know what's the input size yet
 
         self.output_criterion = nn.BCELoss()
-        self.optimizer = Adam(self.parameters(), lr=0.001)
+        self.optimizer = None
 
     def __initialize_network(self, input_shape, output_shape):
         self.layer1 = nn.Linear(input_shape, 64)
         self.reconstruct_output = nn.Linear(64, input_shape)
-        self.output_layer = nn.Linear(16, output_shape)
+
+        self.encode_layer = nn.Sequential(
+            nn.Linear(input_shape, 64),
+            nn.ReLU(),
+            nn.Linear(64, 16),
+            nn.ReLU()
+        )
+
+        self.decode_layer = nn.Sequential(
+            nn.Linear(16, 64),
+            nn.ReLU(),
+            nn.Linear(64, input_shape)
+        )
+
+        self.output_layer = nn.Sequential(
+            nn.Linear(16, 16),
+            nn.Linear(16, output_shape),
+        )
+        self.optimizer = Adam(self.parameters(), lr=0.001)
 
     def forward(self, inputs):
-        layer1 = F.relu(self.layer1(inputs))
-        layer2 = F.relu(self.layer2(layer1))
+        encoded_feature = self.encode_layer(inputs)
 
         # output
-        layer3 = F.relu(self.layer3(layer2))
-        output = torch.sigmoid(self.output_layer(layer3))
+        output = torch.sigmoid(self.output_layer(encoded_feature))
 
         # reconstruction
-        pre_reconstruct_layer = F.relu(self.pre_reconstruct_layer(layer2))
-        reconstruct_output = self.reconstruct_output(pre_reconstruct_layer)
+        reconstruct_output = self.decode_layer(encoded_feature)
 
         return output, reconstruct_output
+
+    def freeze_encoder_layer(self):
+        for layer in list(self.encode_layer.parameters()):
+            layer.requires_grad = False
+
+    def unfreeze_encoder_layer(self):
+        for layer in list(self.encode_layer.parameters()):
+            layer.requires_grad = True
 
     def fit(self, limited_inputs, limited_targets):
         # hard code the value 1 for now, we are only predicting 2 values
         self.__initialize_network(limited_inputs.shape[1], 1)
         self.train(True)
         # make dataset to torch type
-        dataset = TorchDataset(self.all_X_train, self.all_y_train)
+        dataset = OnlyXDataset(self.all_X_train)
         # shuffle false because data already shuffled
         data_loader = DataLoader(dataset, batch_size, shuffle=False)
         limited_dataset = TorchDataset(limited_inputs, limited_targets)
         # shuffle false because data already shuffled
         limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
 
+        self.unfreeze_encoder_layer()
         # train autoencoder first
         for j in range(epoch):
-            for all_x, _ in data_loader:
+            for all_x in data_loader:
                 variable_all_x = Variable(all_x)
                 _, reconstruction = self.forward(variable_all_x)
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 self.optimizer.zero_grad()
                 reconstruction_loss.backward()
                 self.optimizer.step()
+
+        # after training autoencoder freeze the previous layers
+        self.freeze_encoder_layer()
 
         for i in range(epoch):
             for batch_limit_x, batch_limit_y in limited_data_loader:

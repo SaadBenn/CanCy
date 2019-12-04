@@ -5,6 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC, LinearSVC
+from sklearn.model_selection import KFold
 import sys
 
 sys.path.insert(0, "./")
@@ -24,9 +25,9 @@ model_dict = {
 }
 
 
-def model_initializer(all_X_train, all_y_train, model_type, random_state=42):
+def model_initializer(all_X_train, model_type, random_state=42):
     if arg.model_type == "network":
-        model_selected = model_dict[model_type](all_X_train, all_y_train, random_state=random_state)
+        model_selected = model_dict[model_type](all_X_train, random_state=random_state)
     else:
         model_selected = model_dict[model_type](random_state=random_state)
     return model_selected
@@ -80,21 +81,25 @@ if __name__ == '__main__':
                                                               "example would be breast-cancer-wisconsin.data")
     parser.add_argument('--model_type', required=True, help="choose the model to train on the dataset")
     parser.add_argument('--num_samples', type=int, help="specify the number of samples for training the model")
+    parser.add_argument('--num_folds', type=int, default=5, help="specify the number of samples for training the model")
     arg = parser.parse_args()
 
     # get dataset
     dataset_filename = os.path.join('data', arg.dataset_type)
-    dataset = dataset_dict[arg.dataset_type](dataset_filename, seed=arg.random_seed)
+    dataset = dataset_dict[arg.dataset_type](dataset_filename, seed=arg.random_seed, num_kfold_splits=arg.num_folds)
     dataset.process_dataset()
-    X_train, X_test, y_train, y_test = dataset.create_train_test_dataset()
-    # if num_samples is specify, then we limit the training samples
-    limit_X_train = X_train
-    limit_y_train = y_train
-    if arg.num_samples:
-        limit_X_train, limit_y_train = limit_samples(X_train, y_train, num_classes=2, num_samples_per_class=arg.num_samples)
+    dataset.create_kfold_dataset()
 
-    # train model
-    model = model_initializer(X_train, y_train, arg.model_type, random_state=arg.random_seed)
-    model.fit(limit_X_train, limit_y_train)
-    score = model.score(X_test, y_test)
-    print(f"Accuracy: {score}")
+    for i in range(arg.num_folds):
+        X_train, X_test, y_train, y_test = dataset.get_next_kfold_data()
+        # if num_samples is specify, then we limit the training samples
+        limit_X_train = X_train
+        limit_y_train = y_train
+        if arg.num_samples:
+            limit_X_train, limit_y_train = limit_samples(X_train, y_train, num_classes=2, num_samples_per_class=arg.num_samples)
+
+        # train model
+        model = model_initializer(dataset.X, arg.model_type, random_state=arg.random_seed)
+        model.fit(limit_X_train, limit_y_train)
+        score = model.score(X_test, y_test)
+        print(f"Accuracy: {score}")
