@@ -5,7 +5,6 @@ from torch.autograd import Variable
 from torch.optim import Adam
 import numpy as np
 
-
 batch_size = 32
 epoch = 1000
 
@@ -135,6 +134,17 @@ class Network(nn.Module):
 
                 # print(f"output loss: {output_loss.item()}")
                 # print(f"reconstruction loss: {reconstruction_loss.item()}")
+
+    def predict(self, inputs):
+        self.train(False)
+        self.eval()
+
+        variable_inputs = Variable(torch.from_numpy(inputs))
+        output, _ = self.forward(variable_inputs)
+        output[output >= 0.5] = 1.
+        output[output < 0.5] = 0.
+
+        return output.detach().numpy()
 
     def score(self, inputs, targets):
         self.train(False)

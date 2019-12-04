@@ -5,6 +5,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC, LinearSVC
+from sklearn.metrics import f1_score
 import sys
 
 sys.path.insert(0, "./")
@@ -89,6 +90,7 @@ if __name__ == '__main__':
     dataset.process_dataset()
     dataset.create_kfold_dataset()
 
+    total_f1_score = 0
     for i in range(arg.num_folds):
         X_train, X_test, y_train, y_test = dataset.get_next_kfold_data()
         # if num_samples is specify, then we limit the training samples
@@ -100,5 +102,11 @@ if __name__ == '__main__':
         # train model
         model = model_initializer(dataset.X, arg.model_type, random_state=arg.random_seed)
         model.fit(limit_X_train, limit_y_train)
-        score = model.score(X_test, y_test)
-        print(f"Accuracy: {score}")
+        pred = model.predict(X_test)
+        score = f1_score(y_test, pred, average='micro')
+        total_f1_score += score
+
+    mean_f1_score = total_f1_score/arg.num_folds
+    print(f"f1 score: {mean_f1_score}")
+    #TODO calculate f1_score
+
