@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch.autograd import Variable
-import torch.nn.functional as F
 from torch.optim import Adam
 import numpy as np
 
