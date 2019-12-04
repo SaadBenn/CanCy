@@ -27,7 +27,7 @@ class Dataset:
     @property
     def kfold_dataset(self):
         return self._kfold_dataset
-    
+
     def process_dataset(self):
         # normalize X
         self._X = self.scale.fit_transform(self._X)

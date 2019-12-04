@@ -5,7 +5,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC, LinearSVC
-from sklearn.model_selection import KFold
 import sys
 
 sys.path.insert(0, "./")

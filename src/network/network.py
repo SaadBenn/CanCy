@@ -133,8 +133,8 @@ class Network(nn.Module):
                 total_loss.backward()
                 self.optimizer.step()
 
-                print(f"output loss: {output_loss.item()}")
-                print(f"reconstruction loss: {reconstruction_loss.item()}")
+                # print(f"output loss: {output_loss.item()}")
+                # print(f"reconstruction loss: {reconstruction_loss.item()}")
 
     def score(self, inputs, targets):
         self.train(False)

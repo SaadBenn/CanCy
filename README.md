@@ -10,7 +10,7 @@ run the script
 
 ```python3.6 src/visualization.py --dataset_type type_of_dataset```
 
-The dataset_type currently available are: 
+Replace type_of_dataset with either one of these options: 
 - breast-cancer-wisconsin.data
 - wdbc.data
 - wpbc.data
