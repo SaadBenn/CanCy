@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, "./")
 
 from src.data_preprocessing import dataset_dict
-from src.network.network import Network
+from src.network.network import Network, NetworkSecondApproach, NetworkThirdApproach, NetworkFourthApproach
 
 
 model_dict = {
@@ -21,12 +21,15 @@ model_dict = {
     "gradient_boost": GradientBoostingClassifier,
     "svc": SVC,
     "linear_svc": LinearSVC,
-    "network": Network
+    "network": Network,
+    "network_second": NetworkSecondApproach,
+    "network_third": NetworkThirdApproach,
+    "network_fourth": NetworkFourthApproach
 }
 
 
 def model_initializer(all_X_train, model_type, random_state=42):
-    if arg.model_type == "network":
+    if "network" in arg.model_type:
         model_selected = model_dict[model_type](all_X_train, random_state=random_state)
     else:
         model_selected = model_dict[model_type](random_state=random_state)

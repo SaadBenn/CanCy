@@ -6,7 +6,8 @@ from torch.optim import Adam
 import numpy as np
 
 batch_size = 32
-epoch = 1000
+reconstruct_epoch = 100
+epoch = 20
 
 
 class TorchDataset(Dataset):
@@ -48,7 +49,7 @@ class Network(nn.Module):
         self.output_criterion = nn.BCELoss()
         self.optimizer = None
 
-    def __initialize_network(self, input_shape, output_shape):
+    def _initialize_network(self, input_shape, output_shape):
         self.layer1 = nn.Linear(input_shape, 64)
         self.reconstruct_output = nn.Linear(64, input_shape)
 
@@ -92,7 +93,7 @@ class Network(nn.Module):
 
     def fit(self, limited_inputs, limited_targets):
         # hard code the value 1 for now, we are only predicting 2 values
-        self.__initialize_network(limited_inputs.shape[1], 1)
+        self._initialize_network(limited_inputs.shape[1], 1)
         self.train(True)
         # make dataset to torch type
         dataset = OnlyXDataset(self.all_X_train)
@@ -102,38 +103,21 @@ class Network(nn.Module):
         # shuffle false because data already shuffled
         limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
 
-        self.unfreeze_encoder_layer()
-        # train autoencoder first
-        for j in range(epoch):
-            for all_x in data_loader:
-                variable_all_x = Variable(all_x)
-                _, reconstruction = self.forward(variable_all_x)
-                reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
-                self.optimizer.zero_grad()
-                reconstruction_loss.backward()
-                self.optimizer.step()
-
-        # after training autoencoder freeze the previous layers
-        self.freeze_encoder_layer()
-
         for i in range(epoch):
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
                 output, _ = self.forward(variable_batch_limit_x)
                 output_loss = self.output_criterion(output, batch_limit_y)
 
-                # batch_all_x, _ = next(iter(data_loader))
-                # variable_batch_all_x = Variable(batch_all_x)
-                # _, reconstruction = self.forward(batch_all_x)
-                # reconstruction_loss = torch.abs(reconstruction - variable_batch_all_x).mean()
+                batch_all_x = next(iter(data_loader))
+                variable_batch_all_x = Variable(batch_all_x)
+                _, reconstruction = self.forward(batch_all_x)
+                reconstruction_loss = torch.abs(reconstruction - variable_batch_all_x).mean()
 
-                total_loss = output_loss #+ 0.5 * reconstruction_loss
+                total_loss = output_loss + 0.5 * reconstruction_loss
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
-
-                # print(f"output loss: {output_loss.item()}")
-                # print(f"reconstruction loss: {reconstruction_loss.item()}")
 
     def predict(self, inputs):
         self.train(False)
@@ -163,3 +147,62 @@ class Network(nn.Module):
             accuracy = (output.shape[0] - torch.abs(output - variable_batch_y).sum()) / output.shape[0]
 
             return accuracy
+
+
+class NetworkSecondApproach(Network):
+    def __init__(self, all_X_train, random_state=42):
+        super(NetworkSecondApproach, self).__init__(all_X_train, random_state=random_state)
+
+    def fit(self, limited_inputs, limited_targets):
+        # hard code the value 1 for now, we are only predicting 2 values
+        self._initialize_network(limited_inputs.shape[1], 1)
+        self.train(True)
+        # make dataset to torch type
+        dataset = OnlyXDataset(self.all_X_train)
+        # shuffle false because data already shuffled
+        data_loader = DataLoader(dataset, batch_size, shuffle=False)
+        limited_dataset = TorchDataset(limited_inputs, limited_targets)
+        # shuffle false because data already shuffled
+        limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
+
+        self.unfreeze_encoder_layer()
+        # train autoencoder first
+        for j in range(reconstruct_epoch):
+            for all_x in data_loader:
+                variable_all_x = Variable(all_x)
+                _, reconstruction = self.forward(variable_all_x)
+                reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
+                self.optimizer.zero_grad()
+                reconstruction_loss.backward()
+                self.optimizer.step()
+
+        # after training autoencoder freeze the previous layers
+        self.freeze_encoder_layer()
+
+        for i in range(epoch):
+            for batch_limit_x, batch_limit_y in limited_data_loader:
+                variable_batch_limit_x = Variable(batch_limit_x)
+                output, _ = self.forward(variable_batch_limit_x)
+                output_loss = self.output_criterion(output, batch_limit_y)
+
+                self.optimizer.zero_grad()
+                output_loss.backward()
+                self.optimizer.step()
+
+
+class NetworkThirdApproach(Network):
+    def __init__(self, all_X_train, random_state=42):
+        super(NetworkThirdApproach, self).__init__(all_X_train, random_state=random_state)
+
+    def fit(self, limited_inputs, limited_targets):
+        #TODO: reconstruct the encoded features
+        pass
+
+
+class NetworkFourthApproach(Network):
+    def __init__(self, all_X_train, random_state=42):
+        super(NetworkFourthApproach, self).__init__(all_X_train, random_state=random_state)
+
+    def fit(self, limited_inputs, limited_targets):
+        # TODO: Create the similarity network module to predict similarity between inputs encoded features
+        pass
