@@ -197,6 +197,7 @@ class NetworkThirdApproach(Network):
     def fit(self, limited_inputs, limited_targets):
         #TODO: reconstruct the encoded features
         pass
+        print('To be built')
 
 
 class NetworkFourthApproach(Network):
@@ -206,3 +207,4 @@ class NetworkFourthApproach(Network):
     def fit(self, limited_inputs, limited_targets):
         # TODO: Create the similarity network module to predict similarity between inputs encoded features
         pass
+    print('To be built')
