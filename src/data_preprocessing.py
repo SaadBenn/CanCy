@@ -1,16 +1,20 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 
 
 class Dataset:
-    def __init__(self, path_to_file, seed=42):
+    def __init__(self, path_to_file, seed=42, num_kfold_splits=5):
         self.filename = path_to_file
         self._X = None
         self._Y = None
+        self._kfold_dataset = None
         self.seed = seed
         self.scale = StandardScaler()
+        # kfold
+        self.num_kfold_splits = num_kfold_splits
+        self.current_kfold_index = 0
 
     @property
     def X(self):
@@ -19,7 +23,11 @@ class Dataset:
     @property
     def Y(self):
         return self._Y
-    
+
+    @property
+    def kfold_dataset(self):
+        return self._kfold_dataset
+
     def process_dataset(self):
         # normalize X
         self._X = self.scale.fit_transform(self._X)
@@ -28,17 +36,30 @@ class Dataset:
         # model can understand better
         labelencoder_Y = LabelEncoder()
         self._Y = labelencoder_Y.fit_transform(self._Y)
-        self._Y = np.expand_dims(self._Y, 1)
+        self._Y = np.expand_dims(self._Y, 1).astype(np.float32)
 
-    def create_train_test_dataset(self):
-        X_train, X_test, y_train, y_test = train_test_split(self._X, self._Y, test_size=0.2,
-                                                            shuffle=True, random_state=self.seed)
-        return X_train, X_test, y_train, y_test
+    def create_kfold_dataset(self):
+        kfold = KFold(self.num_kfold_splits, shuffle=True, random_state=self.seed)
+        self._kfold_dataset = list(kfold.split(self._X, self._Y))  # get the index
+
+    def get_next_kfold_data(self):
+        current_kfold_data = self._kfold_dataset[self.current_kfold_index]
+        self.current_kfold_index += 1
+        # goes back if current fold is more than the number of folds
+        if self.current_kfold_index >= self.num_kfold_splits:
+            self.current_kfold_index = 0
+
+        current_X_train = self._X[current_kfold_data[0]]
+        current_y_train = self._Y[current_kfold_data[0]]
+        current_X_test = self._X[current_kfold_data[1]]
+        current_y_test = self._Y[current_kfold_data[1]]
+
+        return current_X_train, current_X_test, current_y_train, current_y_test
 
 
 class BCWDataset(Dataset):
-    def __init__(self, path_to_file, seed):
-        super(BCWDataset, self).__init__(path_to_file, seed)
+    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+        super(BCWDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):
         # Reading the data set
@@ -51,14 +72,13 @@ class BCWDataset(Dataset):
         self._X = X
         self._Y = Y
 
-
         print("breast cancer wisconsin cancer dataset dimensions : {}".format(data.shape))
         super(BCWDataset, self).process_dataset()
 
 
 class WDBCDataset(Dataset):
-    def __init__(self, path_to_file, seed):
-        super(WDBCDataset, self).__init__(path_to_file, seed)
+    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+        super(WDBCDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):
         # Reading the data set
@@ -76,8 +96,8 @@ class WDBCDataset(Dataset):
 
 
 class WPBCDataset(Dataset):
-    def __init__(self, path_to_file, seed):
-        super(WPBCDataset, self).__init__(path_to_file, seed)
+    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+        super(WPBCDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):
         # Reading the data set
