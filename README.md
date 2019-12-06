@@ -1,4 +1,5 @@
-# Cancer-Stats-Miner
+# CanCy
+Breast cancer prediction using supervised and unsupervised machine learning models
 
 The [dataset](http://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Original%29) used for modelling comes from University of Wisconsin.
 
