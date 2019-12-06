@@ -56,6 +56,6 @@ The output for running this command will be the f1 score on the model on the dat
 
 - [X] Data labelling/cleaning
 
-- [ ] Data Modelling
+- [X] Data Modelling
 
-- [ ] Data Prediction
+- [X] Data Prediction
