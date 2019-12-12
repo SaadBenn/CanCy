@@ -111,5 +111,4 @@ if __name__ == '__main__':
 
     mean_f1_score = total_f1_score/arg.num_folds
     print(f"f1 score: {mean_f1_score}")
-    #TODO calculate f1_score
 
