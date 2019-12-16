@@ -82,7 +82,7 @@ class Network(nn.Module):
         # reconstruction
         reconstruct_output = self.decode_layer(encoded_feature)
 
-        return output, reconstruct_output
+        return output, encoded_feature, reconstruct_output
 
     def freeze_encoder_layer(self):
         for layer in list(self.encode_layer.parameters()):
@@ -112,7 +112,7 @@ class Network(nn.Module):
 
                 batch_all_x = next(iter(data_loader))
                 variable_batch_all_x = Variable(batch_all_x)
-                _, reconstruction = self.forward(batch_all_x)
+                _, _, reconstruction = self.forward(batch_all_x)
                 reconstruction_loss = torch.abs(reconstruction - variable_batch_all_x).mean()
 
                 total_loss = output_loss + 0.5 * reconstruction_loss
@@ -125,7 +125,7 @@ class Network(nn.Module):
         self.eval()
 
         variable_inputs = Variable(torch.from_numpy(inputs))
-        output, _ = self.forward(variable_inputs)
+        output, _, _ = self.forward(variable_inputs)
         output[output >= 0.5] = 1.
         output[output < 0.5] = 0.
 
@@ -171,7 +171,7 @@ class NetworkSecondApproach(Network):
         for j in range(reconstruct_epoch):
             for all_x in data_loader:
                 variable_all_x = Variable(all_x)
-                _, reconstruction = self.forward(variable_all_x)
+                _, _, reconstruction = self.forward(variable_all_x)
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 self.optimizer.zero_grad()
                 reconstruction_loss.backward()
@@ -215,10 +215,8 @@ class NetworkThirdApproach(Network):
         for j in range(reconstruct_epoch):
             for all_x in data_loader:
                 variable_all_x = Variable(all_x)
-                _, reconstruction = self.forward(variable_all_x)
-
-                encode_features = self.forward_get_encode_features(variable_all_x)
-                recon_encode_features = self.forward_get_encode_features(reconstruction)
+                _, encode_features, reconstruction = self.forward(variable_all_x)
+                _, recon_encode_features, _ = self.forward(reconstruction)
 
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
@@ -235,7 +233,7 @@ class NetworkThirdApproach(Network):
         for i in range(epoch):
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
-                output, _ = self.forward(variable_batch_limit_x)
+                output, _, _ = self.forward(variable_batch_limit_x)
                 output_loss = self.output_criterion(output, batch_limit_y)
 
                 self.optimizer.zero_grad()
@@ -246,13 +244,18 @@ class NetworkThirdApproach(Network):
 class NetworkFourthApproach(Network):
     def __init__(self, all_X_train, random_state=42):
         super(NetworkFourthApproach, self).__init__(all_X_train, random_state=random_state)
+        self.similarity_criterion = nn.BCELoss()
+        self.limited_data_loader = None  # this stores the available training samples so we can use to predict and
+                                         # compare unseen samples
 
     def _initialize_network(self, input_shape, output_shape):
         super(NetworkFourthApproach, self)._initialize_network(input_shape, output_shape)
         self.similarity_layer = nn.Sequential(
             nn.Linear(num_encoded_features*2, 64),
             nn.ReLU(),
-            nn.Linear(64, 1)
+            nn.Linear(64, 64),
+            nn.Linear(64, 1),
+            nn.Sigmoid()
         )
 
     def forward(self, inputs):
@@ -264,7 +267,7 @@ class NetworkFourthApproach(Network):
         # reconstruction
         reconstruct_output = self.decode_layer(encoded_feature)
 
-        return output, reconstruct_output
+        return output, encoded_feature, reconstruct_output
 
     def fit(self, limited_inputs, limited_targets):
         # hard code the value 1 for now, we are only predicting 2 values
@@ -276,29 +279,80 @@ class NetworkFourthApproach(Network):
         data_loader = DataLoader(dataset, batch_size, shuffle=False)
         limited_dataset = TorchDataset(limited_inputs, limited_targets)
         # shuffle false because data already shuffled
-        limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
+        self.limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
 
-        self.unfreeze_encoder_layer()
+        # setup query samples
+        self.query_samples = []  # use to calculate similarity during prediction stage, query samples
+                                 # is the known data samples
+        num_targets = int(torch.max(limited_dataset.targets).cpu().item()) + 1
+        for _ in range(num_targets):
+            self.query_samples.append([])
+        # add the inputs and targets into query_samples
+        for index, target in enumerate(limited_dataset.targets):
+            target_index = int(target.cpu().item())
+            self.query_samples[target_index].append(limited_dataset.inputs[index])
+
         # train autoencoder first
         for j in range(reconstruct_epoch):
             for all_x in data_loader:
                 variable_all_x = Variable(all_x)
-                _, reconstruction = self.forward(variable_all_x)
+                _, encode_features, reconstruction = self.forward(variable_all_x)
+                _, recon_encode_features, _ = self.forward(reconstruction)
+
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
+                encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
+
+                total_recons_loss = reconstruction_loss + 0.01 * encode_reconstruction_loss
+
                 self.optimizer.zero_grad()
-                reconstruction_loss.backward()
+                total_recons_loss.backward()
                 self.optimizer.step()
 
-        # after training autoencoder freeze the previous layers
-        self.freeze_encoder_layer()
-
+        # train similarity
         for i in range(epoch):
-            for batch_limit_x, batch_limit_y in limited_data_loader:
+            for batch_limit_x, batch_limit_y in self.limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
-                output, _ = self.forward(variable_batch_limit_x)
-                output_loss = self.output_criterion(output, batch_limit_y)
+                output, encoded_features, _ = self.forward(variable_batch_limit_x)
+                # calculate similarity loss
+                total_similarity_loss = None
+                for i in range(encoded_features.shape[0]):
+                    for j in range(encoded_features.shape[0]):
+                        concatenated_encoded_features = torch.cat((encoded_features[i], encoded_features[j]))
+                        concatenated_encoded_features = concatenated_encoded_features.unsqueeze(0)
+                        truth_similarity = batch_limit_y[i] == batch_limit_y[j]  # check if label is similar
+                        truth_similarity = truth_similarity.type(torch.FloatTensor)  # convert boolean to float
 
+                        similarity_output = self.similarity_layer(concatenated_encoded_features)
+
+                        if total_similarity_loss is None:
+                            total_similarity_loss = self.similarity_criterion(similarity_output, truth_similarity)
+                        else:
+                            total_similarity_loss += self.similarity_criterion(similarity_output, truth_similarity)
+
+                # calculate mean similarity
+                similarity_loss = total_similarity_loss / (encoded_features.shape[0] ** 2)
                 self.optimizer.zero_grad()
-                output_loss.backward()
+                similarity_loss.backward()
                 self.optimizer.step()
+
     print('To be built')
+
+    def predict(self, inputs):
+        self.train(False)
+        self.eval()
+        variable_inputs = Variable(torch.from_numpy(inputs))
+        _, encoded_input_features, _ = self.forward(variable_inputs)
+
+        # hard-coded, might need to change this
+        current_similarity = np.zeros((inputs.shape[0], len(self.query_samples), 1))
+
+        for query_samples_index in range(len(self.query_samples)):
+            for query in self.query_samples[query_samples_index]:
+                query = query.repeat(inputs.shape[0], 1)
+                _, encoded_query_features, _ = self.forward(query)
+                concatenated_features = torch.cat((encoded_input_features, encoded_query_features), 1)
+                similarity_output = self.similarity_layer(concatenated_features)
+                current_similarity[:, query_samples_index] += similarity_output.detach().numpy()
+
+        output = current_similarity.argmax(1).astype(np.float32)
+        return output
