@@ -1,4 +1,5 @@
-# Cancer-Stats-Miner
+# CanCy
+Breast cancer prediction using supervised and unsupervised machine learning models
 
 The [dataset](http://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Original%29) used for modelling comes from University of Wisconsin.
 
@@ -56,6 +57,6 @@ The output for running this command will be the f1 score on the model on the dat
 
 - [X] Data labelling/cleaning
 
-- [ ] Data Modelling
+- [X] Data Modelling
 
-- [ ] Data Prediction
+- [X] Data Prediction

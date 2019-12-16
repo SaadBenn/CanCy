@@ -84,6 +84,7 @@ class Network(nn.Module):
 
         return output, encoded_feature, reconstruct_output
 
+
     def freeze_encoder_layer(self):
         for layer in list(self.encode_layer.parameters()):
             layer.requires_grad = False
@@ -93,6 +94,8 @@ class Network(nn.Module):
             layer.requires_grad = True
 
     def fit(self, limited_inputs, limited_targets):
+        limited_targets = np.expand_dims(limited_targets, 1)
+
         # hard code the value 1 for now, we are only predicting 2 values
         self._initialize_network(limited_inputs.shape[1], 1)
         self.train(True)
@@ -107,12 +110,13 @@ class Network(nn.Module):
         for i in range(epoch):
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
-                output, _ = self.forward(variable_batch_limit_x)
+                output, _, _ = self.forward(variable_batch_limit_x)
                 output_loss = self.output_criterion(output, batch_limit_y)
 
                 batch_all_x = next(iter(data_loader))
                 variable_batch_all_x = Variable(batch_all_x)
                 _, _, reconstruction = self.forward(batch_all_x)
+
                 reconstruction_loss = torch.abs(reconstruction - variable_batch_all_x).mean()
 
                 total_loss = output_loss + 0.5 * reconstruction_loss
@@ -126,6 +130,7 @@ class Network(nn.Module):
 
         variable_inputs = Variable(torch.from_numpy(inputs))
         output, _, _ = self.forward(variable_inputs)
+
         output[output >= 0.5] = 1.
         output[output < 0.5] = 0.
 
@@ -155,6 +160,8 @@ class NetworkSecondApproach(Network):
         super(NetworkSecondApproach, self).__init__(all_X_train, random_state=random_state)
 
     def fit(self, limited_inputs, limited_targets):
+        limited_targets = np.expand_dims(limited_targets, 1)
+
         # hard code the value 1 for now, we are only predicting 2 values
         self._initialize_network(limited_inputs.shape[1], 1)
         self.train(True)
@@ -172,6 +179,7 @@ class NetworkSecondApproach(Network):
             for all_x in data_loader:
                 variable_all_x = Variable(all_x)
                 _, _, reconstruction = self.forward(variable_all_x)
+
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 self.optimizer.zero_grad()
                 reconstruction_loss.backward()
@@ -183,7 +191,7 @@ class NetworkSecondApproach(Network):
         for i in range(epoch):
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
-                output, _ = self.forward(variable_batch_limit_x)
+                output, _, _ = self.forward(variable_batch_limit_x)
                 output_loss = self.output_criterion(output, batch_limit_y)
 
                 self.optimizer.zero_grad()
@@ -200,6 +208,8 @@ class NetworkThirdApproach(Network):
         return encode_features
 
     def fit(self, limited_inputs, limited_targets):
+        limited_targets = np.expand_dims(limited_targets, 1)
+
         self._initialize_network(limited_inputs.shape[1], 1)
         self.train(True)
         # make dataset to torch type
@@ -270,6 +280,8 @@ class NetworkFourthApproach(Network):
         return output, encoded_feature, reconstruct_output
 
     def fit(self, limited_inputs, limited_targets):
+        limited_targets = np.expand_dims(limited_targets, 1)
+
         # hard code the value 1 for now, we are only predicting 2 values
         self._initialize_network(limited_inputs.shape[1], 1)
         self.train(True)

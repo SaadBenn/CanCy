@@ -104,11 +104,10 @@ if __name__ == '__main__':
 
         # train model
         model = model_initializer(dataset.X, arg.model_type, random_state=arg.random_seed)
-        model.fit(limit_X_train, limit_y_train)
+        model.fit(limit_X_train, limit_y_train.ravel())
         pred = model.predict(X_test)
         score = f1_score(y_test, pred, average='micro')
         total_f1_score += score
 
     mean_f1_score = total_f1_score/arg.num_folds
     print(f"f1 score: {mean_f1_score}")
-
