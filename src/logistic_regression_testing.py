@@ -80,6 +80,7 @@ if __name__ == '__main__':
     }
 
     model = LogisticRegression(penalty='elasticnet', solver = 'saga', random_state=arg.random_seed, max_iter=10000)
+    rand_search = RandomizedSearchCV(model, random_state=arg.random_seed, param_distributions = param_distributions, cv = 5, n_jobs=-1, n_iter=200)
 
     best_model_found = rand_search.fit(dataset.X, np.ravel(dataset.Y))
     print("f1 score on training: ", best_model_found.best_score_)

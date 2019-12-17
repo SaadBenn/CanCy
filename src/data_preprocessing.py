@@ -23,6 +23,7 @@ class Dataset:
         return self._X
     
     @property
+    def X_Test(self):
         return self._X_Test
 
     @property
@@ -30,6 +31,7 @@ class Dataset:
         return self._Y
     
     @property
+    def Y_Test(self):
         return self._Y_Test
 
     @property
