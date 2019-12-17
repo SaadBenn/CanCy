@@ -48,6 +48,9 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
     """
     limited_inputs = []
     limited_targets = []
+    inserted_index = []  # this shows the inserted index into the limited_inputs and limited_targets
+                         # so that we can delete them from the inputs and targets and use the remaining
+                         # inputs and targets as testing data
 
     targets_count = {}
     total_samples = num_classes * num_samples_per_class
@@ -60,6 +63,7 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
             targets_count[current_target] = 1
             limited_inputs.append(inputs[index])
             limited_targets.append(targets[index])
+            inserted_index.append(index)
             num_samples_added += 1
         else:
             # if the length of this current target is less than the num_samples_per_class we append
@@ -67,14 +71,18 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
                 targets_count[current_target] += 1
                 limited_inputs.append(inputs[index])
                 limited_targets.append(targets[index])
+                inserted_index.append(index)
                 num_samples_added += 1
                 # check if the total targets_dict reach the limit
                 if len(limited_inputs) >= total_samples:
                     break
 
+    remaining_inputs = np.delete(inputs, inserted_index, axis=0)
+    remaining_targets = np.delete(targets, inserted_index, axis=0)
+
     limited_inputs = np.array(limited_inputs)
     limited_targets = np.array(limited_targets)
-    return limited_inputs, limited_targets
+    return limited_inputs, limited_targets, remaining_inputs, remaining_targets
 
 
 if __name__ == '__main__':
@@ -100,7 +108,12 @@ if __name__ == '__main__':
         limit_X_train = X_train
         limit_y_train = y_train
         if arg.num_samples:
-            limit_X_train, limit_y_train = limit_samples(X_train, y_train, num_classes=2, num_samples_per_class=arg.num_samples)
+            limit_X_train, limit_y_train, remaining_X, remaining_y = limit_samples(X_train, y_train,
+                                                                                   num_classes=2,
+                                                                                   num_samples_per_class=arg.num_samples)
+        # combine the unused samples with the testing data
+        X_test = np.concatenate([X_test, remaining_X])
+        y_test = np.concatenate([y_test, remaining_y])
 
         # train model
         model = model_initializer(dataset.X, arg.model_type, random_state=arg.random_seed)
