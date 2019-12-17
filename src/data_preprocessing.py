@@ -1,14 +1,16 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 
 
 class Dataset:
     def __init__(self, path_to_file, seed=42, num_kfold_splits=5):
         self.filename = path_to_file
         self._X = None
+        self._X_Test = None
         self._Y = None
+        self._Y_Test = None
         self._kfold_dataset = None
         self.seed = seed
         self.scale = StandardScaler()
@@ -19,10 +21,16 @@ class Dataset:
     @property
     def X(self):
         return self._X
+    
+    @property
+        return self._X_Test
 
     @property
     def Y(self):
         return self._Y
+    
+    @property
+        return self._Y_Test
 
     @property
     def kfold_dataset(self):
@@ -55,7 +63,10 @@ class Dataset:
         current_y_test = self._Y[current_kfold_data[1]]
 
         return current_X_train, current_X_test, current_y_train, current_y_test
-
+    
+    def split_into_train_and_test(self, train_size):
+        self._X, self._X_Test, self._Y, self._Y_Test = train_test_split(self._X, self._Y, train_size=train_size,
+                                                                         shuffle=True, random_state=self.seed)
 
 class BCWDataset(Dataset):
     def __init__(self, path_to_file, seed, num_kfold_splits=5):
