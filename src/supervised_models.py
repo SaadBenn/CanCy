@@ -28,15 +28,15 @@ model_dict = {
 }
 
 
-def model_initializer(all_X_train, model_type, random_state=42):
+def model_initializer(all_X_train, X_test, y_test, model_type, random_state=42):
     if "network" in arg.model_type:
-        model_selected = model_dict[model_type](all_X_train, random_state=random_state)
+        model_selected = model_dict[model_type](all_X_train, X_test, y_test, random_state=random_state)
     else:
         model_selected = model_dict[model_type](random_state=random_state)
     return model_selected
 
 
-def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
+def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5, num_testing_samples=10):
     """
     Limit the number of samples per class
 
@@ -53,10 +53,12 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
                          # inputs and targets as testing data
 
     targets_count = {}
+    current_index = 0  # remembers where we added the training data samples, so we continue to add for testing samples
     total_samples = num_classes * num_samples_per_class
     num_samples_added = 0
 
-    # loop through the dataset and add the samples for each class to targets_dict
+    ### adds limited samples for the training sets ###
+    # loop through the dataset and add the samples for each class to targets_dict for the limited inputs and targets
     for index in range(len(targets)):
         current_target = targets[index][0]
         if targets_count.get(current_target, None) is None:
@@ -75,6 +77,35 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
                 num_samples_added += 1
                 # check if the total targets_dict reach the limit
                 if len(limited_inputs) >= total_samples:
+                    current_index = index
+                    break
+
+
+    ### adds samples for the training sets ###
+    limited_testing_inputs = []
+    limited_testing_targets = []
+    targets_count = {}
+    total_testing_samples = num_classes * num_testing_samples
+    num_samples_added = 0
+    # loop through the dataset and add the samples for each class to targets_dict for the testing inputs and targets
+    for index in range(current_index+1, len(targets)):
+        current_target = targets[index][0]
+        if targets_count.get(current_target, None) is None:
+            targets_count[current_target] = 1
+            limited_testing_inputs.append(inputs[index])
+            limited_testing_targets.append(targets[index])
+            inserted_index.append(index)
+            num_samples_added += 1
+        else:
+            # if the length of this current target is less than the num_samples_per_class we append
+            if targets_count[current_target] < num_testing_samples:
+                targets_count[current_target] += 1
+                limited_testing_inputs.append(inputs[index])
+                limited_testing_targets.append(targets[index])
+                inserted_index.append(index)
+                num_samples_added += 1
+                # check if the total targets_dict reach the limit
+                if len(limited_inputs) >= total_testing_samples:
                     break
 
     remaining_inputs = np.delete(inputs, inserted_index, axis=0)
@@ -82,7 +113,11 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5):
 
     limited_inputs = np.array(limited_inputs)
     limited_targets = np.array(limited_targets)
-    return limited_inputs, limited_targets, remaining_inputs, remaining_targets
+    limited_testing_inputs = np.array(limited_testing_inputs)
+    limited_testing_targets = np.array(limited_testing_targets)
+
+    return limited_inputs, limited_targets, limited_testing_inputs, limited_testing_targets,\
+           remaining_inputs, remaining_targets
 
 
 if __name__ == '__main__':
@@ -103,23 +138,24 @@ if __name__ == '__main__':
 
     total_f1_score = 0
     for i in range(arg.num_folds):
-        X_train, X_test, y_train, y_test = dataset.get_next_kfold_data()
+        X_train, X_val, y_train, y_val = dataset.get_next_kfold_data()
         # if num_samples is specify, then we limit the training samples
         limit_X_train = X_train
         limit_y_train = y_train
         if arg.num_samples:
-            limit_X_train, limit_y_train, remaining_X, remaining_y = limit_samples(X_train, y_train,
+            limit_X_train, limit_y_train, limit_X_test, limit_y_test, remaining_X, remaining_y = limit_samples(X_train,
+                                                                                                               y_train,
                                                                                    num_classes=2,
                                                                                    num_samples_per_class=arg.num_samples)
         # combine the unused samples with the testing data
-        X_test = np.concatenate([X_test, remaining_X])
-        y_test = np.concatenate([y_test, remaining_y])
+        X_val = np.concatenate([X_val, remaining_X])
+        y_val = np.concatenate([y_val, remaining_y])
 
         # train model
-        model = model_initializer(dataset.X, arg.model_type, random_state=arg.random_seed)
+        model = model_initializer(dataset.X, limit_X_test, limit_y_test, arg.model_type, random_state=arg.random_seed)
         model.fit(limit_X_train, limit_y_train.ravel())
-        pred = model.predict(X_test)
-        score = f1_score(y_test, pred, average='micro')
+        pred = model.predict(X_val)
+        score = f1_score(y_val, pred, average='micro')
         total_f1_score += score
 
     mean_f1_score = total_f1_score/arg.num_folds
