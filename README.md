@@ -51,12 +51,3 @@ For instance, when num_samples provided is 5, the model is only able to see 5 ca
 non-cancerous data samples to train on.
 
 The output for running this command will be the f1 score on the model on the dataset.
-
-
-# TODOS
-
-- [X] Data labelling/cleaning
-
-- [X] Data Modelling
-
-- [X] Data Prediction
