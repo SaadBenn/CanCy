@@ -40,7 +40,7 @@ model_type options:
 - svc
 - linear_svc
 
---- our approach ---
+#### --- our approach ---
 - network
 - network_second
 - network_third
