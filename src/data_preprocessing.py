@@ -58,7 +58,7 @@ class Dataset:
 
 
 class BCWDataset(Dataset):
-    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+    def __init__(self, path_to_file, seed=4, num_kfold_splits=5):
         super(BCWDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):
@@ -77,7 +77,7 @@ class BCWDataset(Dataset):
 
 
 class WDBCDataset(Dataset):
-    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+    def __init__(self, path_to_file, seed=4, num_kfold_splits=5):
         super(WDBCDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):
@@ -96,7 +96,7 @@ class WDBCDataset(Dataset):
 
 
 class WPBCDataset(Dataset):
-    def __init__(self, path_to_file, seed, num_kfold_splits=5):
+    def __init__(self, path_to_file, seed=4, num_kfold_splits=5):
         super(WPBCDataset, self).__init__(path_to_file, seed, num_kfold_splits=5)
 
     def process_dataset(self):

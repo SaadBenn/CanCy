@@ -29,7 +29,7 @@ model_dict = {
 
 
 def model_initializer(all_X_train, X_test, y_test, model_type, random_state=42):
-    if "network" in arg.model_type:
+    if "network" in model_type:
         model_selected = model_dict[model_type](all_X_train, X_test, y_test, random_state=random_state)
     else:
         model_selected = model_dict[model_type](random_state=random_state)
@@ -136,27 +136,28 @@ if __name__ == '__main__':
     dataset.process_dataset()
     dataset.create_kfold_dataset()
 
-    total_f1_score = 0
-    for i in range(arg.num_folds):
-        X_train, X_val, y_train, y_val = dataset.get_next_kfold_data()
-        # if num_samples is specify, then we limit the training samples
-        limit_X_train = X_train
-        limit_y_train = y_train
-        if arg.num_samples:
-            limit_X_train, limit_y_train, limit_X_test, limit_y_test, remaining_X, remaining_y = limit_samples(X_train,
-                                                                                                               y_train,
-                                                                                   num_classes=2,
-                                                                                   num_samples_per_class=arg.num_samples)
-        # combine the unused samples with the testing data
-        X_val = np.concatenate([X_val, remaining_X])
-        y_val = np.concatenate([y_val, remaining_y])
+    for model_type in model_dict.keys():
+        total_f1_score = 0
+        for i in range(arg.num_folds):
+            X_train, X_val, y_train, y_val = dataset.get_next_kfold_data()
+            # if num_samples is specify, then we limit the training samples
+            limit_X_train = X_train
+            limit_y_train = y_train
+            if arg.num_samples:
+                limit_X_train, limit_y_train, limit_X_test, limit_y_test, remaining_X, remaining_y = limit_samples(X_train,
+                                                                                                                   y_train,
+                                                                                       num_classes=2,
+                                                                                       num_samples_per_class=arg.num_samples)
+            # combine the unused samples with the testing data
+            X_val = np.concatenate([X_val, remaining_X])
+            y_val = np.concatenate([y_val, remaining_y])
 
-        # train model
-        model = model_initializer(dataset.X, limit_X_test, limit_y_test, arg.model_type, random_state=arg.random_seed)
-        model.fit(limit_X_train, limit_y_train.ravel())
-        pred = model.predict(X_val)
-        score = f1_score(y_val, pred, average='micro')
-        total_f1_score += score
+            # train model
+            model = model_initializer(dataset.X, limit_X_test, limit_y_test, model_type, random_state=arg.random_seed)
+            model.fit(limit_X_train, limit_y_train.ravel())
+            pred = model.predict(X_val)
+            score = f1_score(y_val, pred, average='micro')
+            total_f1_score += score
 
-    mean_f1_score = total_f1_score/arg.num_folds
-    print(f"f1 score: {mean_f1_score}")
+        mean_f1_score = total_f1_score/arg.num_folds
+        print(f"{model_type} f1 score: {mean_f1_score}")

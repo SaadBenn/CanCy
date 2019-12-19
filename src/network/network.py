@@ -291,7 +291,7 @@ class NetworkThirdApproach(Network):
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
 
-                total_recons_loss = reconstruction_loss + 0.01 * encode_reconstruction_loss
+                total_recons_loss = reconstruction_loss + encode_reconstruction_loss
 
                 self.optimizer.zero_grad()
                 total_recons_loss.backward()
@@ -398,7 +398,7 @@ class NetworkFourthApproach(Network):
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
 
-                total_recons_loss = reconstruction_loss + 0.01 * encode_reconstruction_loss
+                total_recons_loss = reconstruction_loss + encode_reconstruction_loss
 
                 self.optimizer.zero_grad()
                 total_recons_loss.backward()
