@@ -80,7 +80,6 @@ def limit_samples(inputs, targets, num_classes=2, num_samples_per_class=5, num_t
                     current_index = index
                     break
 
-
     ### adds samples for the training sets ###
     limited_testing_inputs = []
     limited_testing_targets = []
