@@ -6,11 +6,15 @@ from torch.optim import Adam
 import numpy as np
 
 batch_size = 32
-reconstruct_epoch = 100
-epoch = 20
+reconstruct_epoch = 150
+epoch = 50
+num_hidden_units = 64
+num_output_hidden_units = 8
 num_encoded_features = 16
 
 
+# wpbc - 120, 50
+# wdbc - 100, 20
 class TorchDataset(Dataset):
     def __init__(self, inputs, targets):
         self.inputs = torch.from_numpy(inputs)
@@ -41,35 +45,42 @@ class OnlyXDataset(Dataset):
 
 
 class Network(nn.Module):
-    def __init__(self, all_X_train, random_state=42):
+    def __init__(self, all_X_train, X_test, y_test, random_state=42):
         torch.manual_seed(random_state)
         np.random.seed(random_state)
         super(Network, self).__init__()
         self.all_X_train = all_X_train
+        self.X_test = X_test
+        self.y_test = y_test
+        self.test_dataset = TorchDataset(X_test, y_test)
+        self.test_dataloader = DataLoader(self.test_dataset, batch_size=batch_size)
 
         self.output_criterion = nn.BCELoss()
         self.optimizer = None
 
     def _initialize_network(self, input_shape, output_shape):
-        self.layer1 = nn.Linear(input_shape, 64)
-        self.reconstruct_output = nn.Linear(64, input_shape)
+        self.layer1 = nn.Linear(input_shape, num_hidden_units)
+        self.reconstruct_output = nn.Linear(num_hidden_units, input_shape)
 
         self.encode_layer = nn.Sequential(
-            nn.Linear(input_shape, 64),
+            nn.Linear(input_shape, num_hidden_units),
             nn.ReLU(),
-            nn.Linear(64, num_encoded_features),
+            nn.Linear(num_hidden_units, num_encoded_features),
             nn.ReLU()
         )
 
         self.decode_layer = nn.Sequential(
-            nn.Linear(num_encoded_features, 64),
+            nn.Linear(num_encoded_features, num_hidden_units),
             nn.ReLU(),
-            nn.Linear(64, input_shape)
+            nn.Linear(num_hidden_units, input_shape)
         )
 
         self.output_layer = nn.Sequential(
-            nn.Linear(num_encoded_features, 16),
-            nn.Linear(16, output_shape),
+            nn.Linear(num_encoded_features, num_output_hidden_units),
+            nn.ReLU(),
+            nn.Linear(num_output_hidden_units, num_output_hidden_units),
+            nn.ReLU(),
+            nn.Linear(num_output_hidden_units, output_shape),
         )
         self.optimizer = Adam(self.parameters(), lr=0.001)
 
@@ -83,7 +94,6 @@ class Network(nn.Module):
         reconstruct_output = self.decode_layer(encoded_feature)
 
         return output, encoded_feature, reconstruct_output
-
 
     def freeze_encoder_layer(self):
         for layer in list(self.encode_layer.parameters()):
@@ -107,7 +117,16 @@ class Network(nn.Module):
         # shuffle false because data already shuffled
         limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
 
+        # remember previous test output loss so we can do early stopping
+        previous_test_output_loss = 99999
+        current_total_test_output_loss = 0
+        count_test_loss_larger = 2  # count the number of epoch that the test loss is larger then do early stopping
+        current_count = 0  # the current count that the number of times test loss is larger
+        early_stop = False
         for i in range(epoch):
+            if early_stop:
+                break
+            current_total_test_output_loss = 0
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
                 output, _, _ = self.forward(variable_batch_limit_x)
@@ -123,6 +142,23 @@ class Network(nn.Module):
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
+
+                # test if overfit or not, then do early stopping
+                for test_x, test_y in self.test_dataloader:
+                    variable_test_x = Variable(test_x)
+                    test_output, _, _ = self.forward(variable_test_x)
+                    output_loss = self.output_criterion(test_output, test_y)
+                    current_total_test_output_loss += output_loss.detach().item()
+                if current_total_test_output_loss > previous_test_output_loss:
+                    current_count += 1
+                    previous_test_output_loss = current_total_test_output_loss
+                    if current_count > count_test_loss_larger:
+                        early_stop = True
+                    break
+                else:
+                    # reset the current_count
+                    current_count = 0
+                    previous_test_output_loss = current_total_test_output_loss
 
     def predict(self, inputs):
         self.train(False)
@@ -156,8 +192,8 @@ class Network(nn.Module):
 
 
 class NetworkSecondApproach(Network):
-    def __init__(self, all_X_train, random_state=42):
-        super(NetworkSecondApproach, self).__init__(all_X_train, random_state=random_state)
+    def __init__(self, all_X_train, X_test, y_test, random_state=42):
+        super(NetworkSecondApproach, self).__init__(all_X_train, X_test, y_test, random_state=random_state)
 
     def fit(self, limited_inputs, limited_targets):
         limited_targets = np.expand_dims(limited_targets, 1)
@@ -188,7 +224,15 @@ class NetworkSecondApproach(Network):
         # after training autoencoder freeze the previous layers
         self.freeze_encoder_layer()
 
+        # remember previous test output loss so we can do early stopping
+        previous_test_output_loss = 99999
+        current_total_test_output_loss = 0
+        count_test_loss_larger = 2  # count the number of epoch that the test loss is larger then do early stopping
+        current_count = 0  # the current count that the number of times test loss is larger
+        early_stop = False
         for i in range(epoch):
+            if early_stop:
+                break
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
                 output, _, _ = self.forward(variable_batch_limit_x)
@@ -198,10 +242,27 @@ class NetworkSecondApproach(Network):
                 output_loss.backward()
                 self.optimizer.step()
 
+                # test if overfit or not, then do early stopping
+                for test_x, test_y in self.test_dataloader:
+                    variable_test_x = Variable(test_x)
+                    test_output, _, _ = self.forward(variable_test_x)
+                    output_loss = self.output_criterion(test_output, test_y)
+                    current_total_test_output_loss += output_loss.detach().item()
+                if current_total_test_output_loss > previous_test_output_loss:
+                    current_count += 1
+                    previous_test_output_loss = current_total_test_output_loss
+                    if current_count > count_test_loss_larger:
+                        early_stop = True
+                    break
+                else:
+                    # reset the current_count
+                    current_count = 0
+                    previous_test_output_loss = current_total_test_output_loss
+
 
 class NetworkThirdApproach(Network):
-    def __init__(self, all_X_train, random_state=42):
-        super(NetworkThirdApproach, self).__init__(all_X_train, random_state=random_state)
+    def __init__(self, all_X_train, X_test, y_test, random_state=42):
+        super(NetworkThirdApproach, self).__init__(all_X_train, X_test, y_test, random_state=random_state)
 
     def forward_get_encode_features(self, inputs):
         encode_features = self.encode_layer(inputs)
@@ -220,7 +281,6 @@ class NetworkThirdApproach(Network):
         # shuffle false because data already shuffled
         limited_data_loader = DataLoader(limited_dataset, batch_size, shuffle=False)
 
-        self.unfreeze_encoder_layer()
         # train autoencoder first
         for j in range(reconstruct_epoch):
             for all_x in data_loader:
@@ -231,16 +291,22 @@ class NetworkThirdApproach(Network):
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
 
-                total_recons_loss = reconstruction_loss + 0.01 * encode_reconstruction_loss
+                total_recons_loss = reconstruction_loss + encode_reconstruction_loss
 
                 self.optimizer.zero_grad()
                 total_recons_loss.backward()
                 self.optimizer.step()
 
-        # after training autoencoder freeze the previous layers
         self.freeze_encoder_layer()
-
+        # remember previous test output loss so we can do early stopping
+        previous_test_output_loss = 99999
+        current_total_test_output_loss = 0
+        count_test_loss_larger = 2  # count the number of epoch that the test loss is larger then do early stopping
+        current_count = 0  # the current count that the number of times test loss is larger
+        early_stop = False
         for i in range(epoch):
+            if early_stop:
+                break
             for batch_limit_x, batch_limit_y in limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
                 output, _, _ = self.forward(variable_batch_limit_x)
@@ -250,10 +316,27 @@ class NetworkThirdApproach(Network):
                 output_loss.backward()
                 self.optimizer.step()
 
+                # test if overfit or not, then do early stopping
+                for test_x, test_y in self.test_dataloader:
+                    variable_test_x = Variable(test_x)
+                    test_output, _, _ = self.forward(variable_test_x)
+                    output_loss = self.output_criterion(test_output, test_y)
+                    current_total_test_output_loss += output_loss.detach().item()
+                if current_total_test_output_loss > previous_test_output_loss:
+                    current_count += 1
+                    previous_test_output_loss = current_total_test_output_loss
+                    if current_count > count_test_loss_larger:
+                        early_stop = True
+                    break
+                else:
+                    # reset the current_count
+                    current_count = 0
+                    previous_test_output_loss = current_total_test_output_loss
+
 
 class NetworkFourthApproach(Network):
-    def __init__(self, all_X_train, random_state=42):
-        super(NetworkFourthApproach, self).__init__(all_X_train, random_state=random_state)
+    def __init__(self, all_X_train, X_test, y_test, random_state=42):
+        super(NetworkFourthApproach, self).__init__(all_X_train, X_test, y_test, random_state=random_state)
         self.similarity_criterion = nn.BCELoss()
         self.limited_data_loader = None  # this stores the available training samples so we can use to predict and
                                          # compare unseen samples
@@ -261,10 +344,11 @@ class NetworkFourthApproach(Network):
     def _initialize_network(self, input_shape, output_shape):
         super(NetworkFourthApproach, self)._initialize_network(input_shape, output_shape)
         self.similarity_layer = nn.Sequential(
-            nn.Linear(num_encoded_features*2, 64),
+            nn.Linear(num_encoded_features*2, num_hidden_units),
             nn.ReLU(),
-            nn.Linear(64, 64),
-            nn.Linear(64, 1),
+            nn.Linear(num_hidden_units, num_hidden_units),
+            nn.ReLU(),
+            nn.Linear(num_hidden_units, 1),
             nn.Sigmoid()
         )
 
@@ -314,14 +398,22 @@ class NetworkFourthApproach(Network):
                 reconstruction_loss = torch.abs(reconstruction - variable_all_x).mean()
                 encode_reconstruction_loss = (encode_features - recon_encode_features).pow(2).mean()
 
-                total_recons_loss = reconstruction_loss + 0.01 * encode_reconstruction_loss
+                total_recons_loss = reconstruction_loss + encode_reconstruction_loss
 
                 self.optimizer.zero_grad()
                 total_recons_loss.backward()
                 self.optimizer.step()
 
         # train similarity
+        # remember previous test output loss so we can do early stopping
+        # previous_test_output_loss = 99999
+        # current_total_test_output_loss = 0
+        # count_test_loss_larger = 2  # count the number of epoch that the test loss is larger then do early stopping
+        # current_count = 0  # the current count that the number of times test loss is larger
+        # early_stop = False
         for i in range(epoch):
+            # if early_stop:
+            #     break
             for batch_limit_x, batch_limit_y in self.limited_data_loader:
                 variable_batch_limit_x = Variable(batch_limit_x)
                 output, encoded_features, _ = self.forward(variable_batch_limit_x)
@@ -346,6 +438,24 @@ class NetworkFourthApproach(Network):
                 self.optimizer.zero_grad()
                 similarity_loss.backward()
                 self.optimizer.step()
+
+                # test if overfit or not, then do early stopping, as this method is different might need to find a way
+                # to early stop because it doesn't use the output criterion
+                # for test_x, test_y in self.test_dataloader:
+                #     variable_test_x = Variable(test_x)
+                #     test_output, _, _ = self.forward(variable_test_x)
+                #     output_loss = self.output_criterion(test_output, test_y)
+                #     current_total_test_output_loss += output_loss.detach().item()
+                # if current_total_test_output_loss > previous_test_output_loss:
+                #     current_count += 1
+                #     previous_test_output_loss = current_total_test_output_loss
+                #     if current_count > count_test_loss_larger:
+                #         early_stop = True
+                #     break
+                # else:
+                #     # reset the current_count
+                #     current_count = 0
+                #     previous_test_output_loss = current_total_test_output_loss
 
     print('To be built')
 
